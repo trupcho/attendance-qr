@@ -1,0 +1,126 @@
+<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OUT</title>
+  <style>
+    body{font-family:Arial;margin:16px}
+    .box{max-width:520px;margin:0 auto}
+    select,button{width:100%;padding:12px;font-size:16px;margin:8px 0}
+    video,canvas{width:100%;border-radius:12px}
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:700;background:#ffecec}
+    .msg{margin-top:10px}
+    .small{font-size:12px;opacity:.75}
+  </style>
+</head>
+<body>
+<div class="box">
+  <div class="pill">ИЗХОД (OUT)</div>
+  <h2>Чекиране със селфи</h2>
+
+  <label>Име</label>
+  <select id="name">
+    <option value="">— избери —</option>
+  </select>
+
+  <video id="v" playsinline autoplay muted></video>
+  <canvas id="c" style="display:none;"></canvas>
+
+  <button id="start">1) Стартирай камера</button>
+  <button id="snap" disabled>2) Направи селфи</button>
+  <button id="send" disabled>3) Изпрати</button>
+
+  <div class="msg" id="m"></div>
+  <div class="small">Ако камерата пита → Allow.</div>
+
+  <form id="f" method="POST">
+    <input type="hidden" name="mode" value="OUT">
+    <input type="hidden" name="name" id="fname">
+    <input type="hidden" name="dataUrl" id="fdata">
+    <input type="hidden" name="userAgent" id="fua">
+    <input type="hidden" name="deviceId" id="fdev">
+  </form>
+</div>
+
+<script>
+  const BACKEND_EXEC_URL = "PASTE_YOUR_EXEC_URL_HERE";
+
+  const EMPLOYEES = [
+    "Иван Петров",
+    "Петър Иванов"
+  ];
+
+  const v = document.getElementById('v');
+  const c = document.getElementById('c');
+  const m = document.getElementById('m');
+  const start = document.getElementById('start');
+  const snap = document.getElementById('snap');
+  const send = document.getElementById('send');
+  const nameSel = document.getElementById('name');
+
+  const fname = document.getElementById('fname');
+  const fdata = document.getElementById('fdata');
+  const fua = document.getElementById('fua');
+  const fdev = document.getElementById('fdev');
+  const form = document.getElementById('f');
+
+  form.action = BACKEND_EXEC_URL;
+
+  function msg(t, err=false){ m.textContent=t; m.style.color= err?'crimson':'green'; }
+
+  EMPLOYEES.forEach(n=>{
+    const o=document.createElement('option');
+    o.value=n; o.textContent=n;
+    nameSel.appendChild(o);
+  });
+
+  function getOrCreateDeviceId() {
+    const key='attendance_device_id_v1';
+    let id=localStorage.getItem(key);
+    if(!id){
+      id=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(16).slice(2)));
+      localStorage.setItem(key,id);
+    }
+    return id;
+  }
+  const DEVICE_ID = getOrCreateDeviceId();
+
+  let stream=null, dataUrl=null;
+
+  start.onclick = async ()=>{
+    try{
+      msg('');
+      stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"},audio:false});
+      v.srcObject = stream;
+      snap.disabled=false;
+      msg('Камерата е активна.');
+    }catch(e){ msg('Камерата не тръгва: '+e.message, true); }
+  };
+
+  snap.onclick = ()=>{
+    try{
+      const w=v.videoWidth||1280, h=v.videoHeight||720;
+      c.width=w; c.height=h;
+      c.getContext('2d').drawImage(v,0,0,w,h);
+      dataUrl = c.toDataURL('image/jpeg',0.85);
+      send.disabled=false;
+      msg('Селфито е направено.');
+    }catch(e){ msg('Грешка: '+e.message,true); }
+  };
+
+  send.onclick = ()=>{
+    const nm = nameSel.value;
+    if(!nm) return msg('Избери име.', true);
+    if(!dataUrl) return msg('Направи селфи.', true);
+
+    fname.value = nm;
+    fdata.value = dataUrl;
+    fua.value = navigator.userAgent;
+    fdev.value = DEVICE_ID;
+
+    msg('Изпращам...');
+    form.submit();
+  };
+</script>
+</body>
+</html>
